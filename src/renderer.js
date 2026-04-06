@@ -877,6 +877,16 @@ function handleCompatibilityKeyEvent(tab, domEvent) {
 }
 
 function wireProcessKeyboard(tab) {
+  tab.terminal.textarea?.addEventListener(
+    "keydown",
+    (domEvent) => {
+      if (tab.mode === "process" && domEvent.key === "Tab") {
+        domEvent.preventDefault();
+      }
+    },
+    true
+  );
+
   if (typeof tab.terminal.attachCustomKeyEventHandler === "function") {
     tab.terminal.attachCustomKeyEventHandler((domEvent) => handleCompatibilityKeyEvent(tab, domEvent));
   }
