@@ -403,7 +403,38 @@ function updatePromptFromOutput(tab, data) {
 
 function redrawCompatibilityInput(tab) {
   const prompt = tab.lastPrompt || "";
+  const cursorIndex = Math.max(0, Math.min(tab.compatibilityCursorIndex ?? tab.compatibilityBuffer.length, tab.compatibilityBuffer.length));
+  const moveLeft = tab.compatibilityBuffer.length - cursorIndex;
+  tab.compatibilityCursorIndex = cursorIndex;
   tab.terminal.write(`\r\x1b[2K${prompt}${tab.compatibilityBuffer}`);
+  if (moveLeft > 0) {
+    tab.terminal.write(`\x1b[${moveLeft}D`);
+  }
+}
+
+function setCompatibilityBuffer(tab, nextBuffer, cursorIndex = nextBuffer.length) {
+  tab.compatibilityBuffer = nextBuffer;
+  tab.compatibilityCursorIndex = Math.max(0, Math.min(cursorIndex, nextBuffer.length));
+}
+
+function insertIntoCompatibilityBuffer(tab, text) {
+  const cursorIndex = Math.max(0, Math.min(tab.compatibilityCursorIndex ?? tab.compatibilityBuffer.length, tab.compatibilityBuffer.length));
+  const nextBuffer =
+    tab.compatibilityBuffer.slice(0, cursorIndex) + text + tab.compatibilityBuffer.slice(cursorIndex);
+  setCompatibilityBuffer(tab, nextBuffer, cursorIndex + text.length);
+  redrawCompatibilityInput(tab);
+}
+
+function moveCompatibilityCursor(tab, delta) {
+  const nextIndex = Math.max(
+    0,
+    Math.min(tab.compatibilityBuffer.length, (tab.compatibilityCursorIndex ?? tab.compatibilityBuffer.length) + delta)
+  );
+  if (nextIndex === tab.compatibilityCursorIndex) {
+    return;
+  }
+  tab.compatibilityCursorIndex = nextIndex;
+  redrawCompatibilityInput(tab);
 }
 
 function getPromptDirectory(prompt = "") {
@@ -420,7 +451,8 @@ function getCompatibilityTokenContext(buffer = "") {
 }
 
 async function runCompatibilityAutocomplete(tab) {
-  const { leading, token } = getCompatibilityTokenContext(tab.compatibilityBuffer);
+  const bufferBeforeCursor = tab.compatibilityBuffer.slice(0, tab.compatibilityCursorIndex ?? tab.compatibilityBuffer.length);
+  const { leading, token } = getCompatibilityTokenContext(bufferBeforeCursor);
   if (!token) {
     return;
   }
@@ -433,7 +465,9 @@ async function runCompatibilityAutocomplete(tab) {
   });
 
   if (result?.completion) {
-    tab.compatibilityBuffer = `${leading}${result.completion}`;
+    const suffix = tab.compatibilityBuffer.slice(tab.compatibilityCursorIndex ?? tab.compatibilityBuffer.length);
+    const nextBuffer = `${leading}${result.completion}${suffix}`;
+    setCompatibilityBuffer(tab, nextBuffer, `${leading}${result.completion}`.length);
     redrawCompatibilityInput(tab);
     return;
   }
@@ -453,7 +487,7 @@ function submitCompatibilityCommand(tab) {
   }
 
   tab.historyIndex = tab.compatibilityHistory.length;
-  tab.compatibilityBuffer = "";
+  setCompatibilityBuffer(tab, "");
 
   if (command === "clear" || command === "cls") {
     tab.terminal.clear();
@@ -489,8 +523,7 @@ async function pasteIntoCompatibilityTab(tab, text) {
       continue;
     }
 
-    tab.compatibilityBuffer += character;
-    tab.terminal.write(character);
+    insertIntoCompatibilityBuffer(tab, character);
   }
 }
 
@@ -741,69 +774,112 @@ function createTerminalInstance(themeId) {
   });
 }
 
-function wireProcessKeyboard(tab) {
-  tab.terminal.onKey(({ key, domEvent }) => {
-    if (tab.mode !== "process") {
-      return;
+function handleCompatibilityKeyEvent(tab, domEvent) {
+  if (domEvent.type !== "keydown") {
+    return true;
+  }
+
+  if (tab.mode !== "process") {
+    return true;
+  }
+
+  const key = domEvent.key;
+  const isCtrl = domEvent.ctrlKey || domEvent.metaKey;
+
+  if (isCtrl && key.toLowerCase() === "c") {
+    if (tab.terminal.hasSelection()) {
+      return true;
     }
+    tab.terminal.write("^C\r\n");
+    setCompatibilityBuffer(tab, "");
+    window.terminalApi.write({ sessionId: tab.id, data: "\u0003" });
+    return false;
+  }
 
-    const isCtrl = domEvent.ctrlKey || domEvent.metaKey;
-
-    if (isCtrl && domEvent.key.toLowerCase() === "c") {
-      tab.terminal.write("^C\r\n");
-      tab.compatibilityBuffer = "";
-      window.terminalApi.write({ sessionId: tab.id, data: "\u0003" });
-      return;
+  if (key === "Backspace") {
+    const cursorIndex = tab.compatibilityCursorIndex ?? tab.compatibilityBuffer.length;
+    if (cursorIndex > 0) {
+      const nextBuffer =
+        tab.compatibilityBuffer.slice(0, cursorIndex - 1) + tab.compatibilityBuffer.slice(cursorIndex);
+      setCompatibilityBuffer(tab, nextBuffer, cursorIndex - 1);
+      redrawCompatibilityInput(tab);
     }
+    return false;
+  }
 
-    if (domEvent.key === "Backspace") {
-      if (tab.compatibilityBuffer.length > 0) {
-        tab.compatibilityBuffer = tab.compatibilityBuffer.slice(0, -1);
-        tab.terminal.write("\b \b");
-      }
-      domEvent.preventDefault();
-      return;
+  if (key === "Delete") {
+    const cursorIndex = tab.compatibilityCursorIndex ?? tab.compatibilityBuffer.length;
+    if (cursorIndex < tab.compatibilityBuffer.length) {
+      const nextBuffer =
+        tab.compatibilityBuffer.slice(0, cursorIndex) + tab.compatibilityBuffer.slice(cursorIndex + 1);
+      setCompatibilityBuffer(tab, nextBuffer, cursorIndex);
+      redrawCompatibilityInput(tab);
     }
+    return false;
+  }
 
-    if (domEvent.key === "Enter") {
-      submitCompatibilityCommand(tab);
-      domEvent.preventDefault();
-      return;
-    }
+  if (key === "Enter") {
+    submitCompatibilityCommand(tab);
+    return false;
+  }
 
-    if (domEvent.key === "ArrowUp") {
-      if (tab.compatibilityHistory.length === 0) {
-        return;
-      }
+  if (key === "ArrowUp") {
+    if (tab.compatibilityHistory.length > 0) {
       tab.historyIndex = Math.max(0, tab.historyIndex - 1);
-      tab.compatibilityBuffer = tab.compatibilityHistory[tab.historyIndex] || "";
+      setCompatibilityBuffer(tab, tab.compatibilityHistory[tab.historyIndex] || "");
       redrawCompatibilityInput(tab);
-      domEvent.preventDefault();
-      return;
     }
+    return false;
+  }
 
-    if (domEvent.key === "ArrowDown") {
-      if (tab.compatibilityHistory.length === 0) {
-        return;
-      }
+  if (key === "ArrowDown") {
+    if (tab.compatibilityHistory.length > 0) {
       tab.historyIndex = Math.min(tab.compatibilityHistory.length, tab.historyIndex + 1);
-      tab.compatibilityBuffer = tab.compatibilityHistory[tab.historyIndex] || "";
+      setCompatibilityBuffer(tab, tab.compatibilityHistory[tab.historyIndex] || "");
       redrawCompatibilityInput(tab);
-      domEvent.preventDefault();
-      return;
     }
+    return false;
+  }
 
-    if (domEvent.key === "Tab") {
-      void runCompatibilityAutocomplete(tab);
-      domEvent.preventDefault();
-      return;
-    }
+  if (key === "ArrowLeft") {
+    moveCompatibilityCursor(tab, -1);
+    return false;
+  }
 
-    if (!isCtrl && key.length === 1) {
-      tab.compatibilityBuffer += key;
-      tab.terminal.write(key);
-    }
-  });
+  if (key === "ArrowRight") {
+    moveCompatibilityCursor(tab, 1);
+    return false;
+  }
+
+  if (key === "Home") {
+    tab.compatibilityCursorIndex = 0;
+    redrawCompatibilityInput(tab);
+    return false;
+  }
+
+  if (key === "End") {
+    tab.compatibilityCursorIndex = tab.compatibilityBuffer.length;
+    redrawCompatibilityInput(tab);
+    return false;
+  }
+
+  if (key === "Tab") {
+    void runCompatibilityAutocomplete(tab);
+    return false;
+  }
+
+  if (!isCtrl && !domEvent.altKey && key.length === 1) {
+    insertIntoCompatibilityBuffer(tab, key);
+    return false;
+  }
+
+  return true;
+}
+
+function wireProcessKeyboard(tab) {
+  if (typeof tab.terminal.attachCustomKeyEventHandler === "function") {
+    tab.terminal.attachCustomKeyEventHandler((domEvent) => handleCompatibilityKeyEvent(tab, domEvent));
+  }
 }
 
 async function createTab({ label, startPayload }) {
@@ -826,6 +902,7 @@ async function createTab({ label, startPayload }) {
     fitAddon,
     mode: "pty",
     compatibilityBuffer: "",
+    compatibilityCursorIndex: 0,
     compatibilityHistory: [],
     historyIndex: 0,
     lastPrompt: "",
@@ -1115,7 +1192,7 @@ window.terminalApi.onMeta((payload) => {
 
   tab.mode = mode || "pty";
   if (tab.mode === "pty") {
-    tab.compatibilityBuffer = "";
+    setCompatibilityBuffer(tab, "");
   }
 
   if (payload?.sshState) {
