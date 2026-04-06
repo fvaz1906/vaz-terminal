@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Vaz Terminal</title>
+    <link rel="stylesheet" href="../node_modules/xterm/css/xterm.css" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <div class="ambient ambient-left"></div>
+      <div class="ambient ambient-right"></div>
+
+      <header class="titlebar">
+        <div class="titlebar-drag"></div>
+        <div class="brand">
+          <div class="brand-mark">
+            <img src="../assets/logo.svg" alt="Logo do Vaz Terminal" class="brand-mark-image" />
+          </div>
+          <div>
+            <p class="brand-label">Vaz Tecnologia</p>
+            <h1>Vaz Terminal</h1>
+          </div>
+        </div>
+
+        <div class="titlebar-actions">
+          <button type="button" class="menu-button" id="open-sidebar" aria-label="Abrir configuracoes">
+            <svg class="menu-gear" viewBox="0 0 24 24" aria-hidden="true">
+              <path
+                d="M19.14 12.94c.04-.31.06-.63.06-.94s-.02-.63-.06-.94l2.03-1.58a.5.5 0 0 0 .12-.64l-1.92-3.32a.5.5 0 0 0-.6-.22l-2.39.96a7.02 7.02 0 0 0-1.63-.94l-.36-2.54a.5.5 0 0 0-.5-.42h-3.84a.5.5 0 0 0-.5.42l-.36 2.54c-.58.23-1.13.54-1.63.94l-2.39-.96a.5.5 0 0 0-.6.22L2.7 8.84a.5.5 0 0 0 .12.64l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94l-2.03 1.58a.5.5 0 0 0-.12.64l1.92 3.32c.13.22.39.31.6.22l2.39-.96c.5.4 1.05.72 1.63.94l.36 2.54c.04.24.25.42.5.42h3.84c.25 0 .46-.18.5-.42l.36-2.54c.58-.23 1.13-.54 1.63-.94l2.39.96c.22.09.47 0 .6-.22l1.92-3.32a.5.5 0 0 0-.12-.64l-2.03-1.58ZM12 15.5A3.5 3.5 0 1 1 12 8a3.5 3.5 0 0 1 0 7.5Z"
+                fill="currentColor"
+              />
+            </svg>
+          </button>
+          <div class="window-actions">
+            <button type="button" data-action="minimize" aria-label="Minimizar">_</button>
+            <button type="button" data-action="maximize" aria-label="Maximizar">[]</button>
+            <button type="button" data-action="close" aria-label="Fechar">X</button>
+          </div>
+        </div>
+      </header>
+
+      <main class="workspace">
+        <section class="terminal-frame">
+          <div class="tab-strip">
+            <div class="tab-list" id="tab-list"></div>
+            <div class="tab-actions">
+              <button type="button" class="tab-add-button" id="new-local-tab">+ Local</button>
+            </div>
+          </div>
+          <div class="terminal-screen" id="terminal-screen"></div>
+        </section>
+      </main>
+
+      <div class="sidebar-backdrop" id="sidebar-backdrop" hidden></div>
+      <aside class="settings-panel" id="settings-panel" aria-hidden="true">
+        <div class="settings-header">
+          <div>
+            <p class="settings-kicker">Configurações</p>
+            <h2>Preferências</h2>
+          </div>
+          <button type="button" class="close-sidebar" id="close-sidebar" aria-label="Fechar menu">X</button>
+        </div>
+
+        <nav class="settings-nav" id="settings-nav">
+          <button type="button" class="settings-nav-button active" data-panel="themes">Temas</button>
+          <button type="button" class="settings-nav-button" data-panel="terminal">Terminal</button>
+          <button type="button" class="settings-nav-button" data-panel="ssh">SSH</button>
+        </nav>
+
+        <section class="settings-section settings-section-active" data-panel-content="themes">
+          <div class="section-head">
+            <h3>Temas</h3>
+            <span>galeria pronta</span>
+          </div>
+          <div class="theme-grid" id="theme-grid"></div>
+        </section>
+
+        <section class="settings-section" data-panel-content="terminal">
+          <div class="section-head">
+            <h3>Terminal</h3>
+            <span>fonte e comportamento</span>
+          </div>
+
+          <form class="terminal-settings-form" id="terminal-settings-form">
+            <label class="settings-field">
+              <span>Fonte</span>
+              <select id="terminal-font-family" name="fontFamily">
+                <option value='"Cascadia Mono", Consolas, monospace'>Cascadia Mono</option>
+                <option value='Consolas, "Courier New", monospace'>Consolas</option>
+                <option value='"JetBrains Mono", Consolas, monospace'>JetBrains Mono</option>
+                <option value='"Fira Code", Consolas, monospace'>Fira Code</option>
+                <option value='"Courier New", monospace'>Courier New</option>
+              </select>
+            </label>
+
+            <div class="settings-field settings-field-inline">
+              <label>
+                <span>Tamanho da fonte</span>
+                <input type="range" id="terminal-font-size-range" min="10" max="22" step="1" />
+              </label>
+              <label>
+                <span>Valor</span>
+                <input type="number" id="terminal-font-size" name="fontSize" min="10" max="22" step="1" />
+              </label>
+            </div>
+
+            <div class="settings-field settings-field-inline">
+              <label>
+                <span>Altura da linha</span>
+                <input type="range" id="terminal-line-height-range" min="1" max="1.6" step="0.05" />
+              </label>
+              <label>
+                <span>Valor</span>
+                <input type="number" id="terminal-line-height" name="lineHeight" min="1" max="1.6" step="0.05" />
+              </label>
+            </div>
+
+            <label class="settings-field">
+              <span>Peso da fonte</span>
+              <select id="terminal-font-weight" name="fontWeight">
+                <option value="400">Normal</option>
+                <option value="500">Semi forte</option>
+                <option value="600">Forte</option>
+              </select>
+            </label>
+
+            <label class="settings-field">
+              <span>Cursor</span>
+              <select id="terminal-cursor-style" name="cursorStyle">
+                <option value="block">Bloco</option>
+                <option value="bar">Barra</option>
+                <option value="underline">Sublinhado</option>
+              </select>
+            </label>
+
+            <label class="settings-toggle">
+              <input type="checkbox" id="terminal-cursor-blink" name="cursorBlink" />
+              <span>Cursor piscando</span>
+            </label>
+
+            <div class="terminal-settings-actions">
+              <button type="button" class="ssh-back-button" id="reset-terminal-settings">Restaurar padrão</button>
+            </div>
+          </form>
+        </section>
+
+        <section class="settings-section" data-panel-content="ssh">
+          <div class="section-head">
+            <h3>Acessos SSH</h3>
+            <span>salvos localmente</span>
+          </div>
+
+          <p class="storage-hint" id="ssh-storage-path"></p>
+
+          <div class="ssh-view ssh-view-active" id="ssh-list-view">
+            <div class="ssh-toolbar">
+              <button type="button" class="ssh-primary-button" id="new-ssh-button">Novo SSH</button>
+              <div class="ssh-tools">
+                <button type="button" class="ssh-item-connect" id="import-ssh-button">Importar JSON</button>
+                <button type="button" class="ssh-item-delete" id="export-ssh-button">Exportar JSON</button>
+              </div>
+            </div>
+
+            <div class="ssh-list" id="ssh-list"></div>
+          </div>
+
+          <div class="ssh-view" id="ssh-form-view">
+            <div class="ssh-form-header">
+              <button type="button" class="ssh-back-button" id="back-to-ssh-list">Voltar</button>
+              <span id="ssh-form-title">Novo acesso SSH</span>
+            </div>
+
+            <form class="ssh-form" id="ssh-form">
+              <input type="text" id="ssh-name" name="name" placeholder="Nome" required />
+              <input type="text" id="ssh-host" name="host" placeholder="Host ou IP" required />
+              <input
+                type="number"
+                id="ssh-port"
+                name="port"
+                placeholder="Porta"
+                value="22"
+                min="1"
+                max="65535"
+                required
+              />
+              <input type="text" id="ssh-user" name="user" placeholder="Usuario" required />
+
+              <div class="password-field">
+                <input type="password" id="ssh-password" name="password" placeholder="Senha" />
+                <button
+                  type="button"
+                  class="password-toggle"
+                  id="toggle-ssh-password"
+                  aria-label="Mostrar senha"
+                  aria-pressed="false"
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path
+                      d="M12 5c4.97 0 9.08 3.11 10.5 7-1.42 3.89-5.53 7-10.5 7S2.92 15.89 1.5 12C2.92 8.11 7.03 5 12 5Zm0 2c-3.84 0-7.11 2.23-8.39 5 1.28 2.77 4.55 5 8.39 5s7.11-2.23 8.39-5C19.11 9.23 15.84 7 12 7Zm0 1.75A3.25 3.25 0 1 1 8.75 12 3.25 3.25 0 0 1 12 8.75Zm0 2A1.25 1.25 0 1 0 13.25 12 1.25 1.25 0 0 0 12 10.75Z"
+                      fill="currentColor"
+                    />
+                  </svg>
+                </button>
+              </div>
+
+              <button type="submit" id="ssh-submit-button">Salvar acesso</button>
+            </form>
+          </div>
+        </section>
+      </aside>
+    </div>
+
+    <script src="../node_modules/xterm/lib/xterm.js"></script>
+    <script src="../node_modules/xterm-addon-fit/lib/xterm-addon-fit.js"></script>
+    <script src="./renderer.js"></script>
+  </body>
+</html>

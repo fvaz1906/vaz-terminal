@@ -1,0 +1,69 @@
+{
+  "name": "vaz-terminal",
+  "version": "1.0.0",
+  "description": "Aplicacao Electron com visual elegante para simular um terminal do Windows.",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder",
+    "dist:win": "electron-builder --win nsis",
+    "rebuild-node-pty": "npm rebuild node-pty --runtime=electron --target=35.1.4 --dist-url=https://electronjs.org/headers --build-from-source"
+  },
+  "keywords": [
+    "electron",
+    "terminal",
+    "windows"
+  ],
+  "author": "Vaz Tecnologia",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^35.1.4",
+    "electron-builder": "^24.13.3",
+    "rcedit": "^5.0.2"
+  },
+  "dependencies": {
+    "iconv-lite": "^0.7.2",
+    "node-pty": "^1.1.0",
+    "ssh2": "^1.17.0",
+    "xterm": "^5.3.0",
+    "xterm-addon-fit": "^0.8.0"
+  },
+  "build": {
+    "appId": "br.vaztecnologia.vazterminal",
+    "productName": "Vaz Terminal",
+    "executableName": "Vaz Terminal",
+    "npmRebuild": false,
+    "afterPack": "build/after-pack.js",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "assets/**/*",
+      "src/**/*",
+      "data/**/*",
+      "main.js",
+      "preload.js",
+      "package.json"
+    ],
+    "win": {
+      "signAndEditExecutable": false,
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "assets/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Vaz Terminal"
+    }
+  }
+}
